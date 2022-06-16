@@ -12,12 +12,12 @@ load_dotenv()
 
 
 
-MODEL_PATH = r"../Models/Model_MFCC/"
+MODEL_PATH = r"./Models/Model_MFCC/"
 RES50_PATH = MODEL_PATH + "Res50\\Model.h5"
 RES18_PATH = MODEL_PATH + "Res18\\Model.h5"
 RCNN_PATH = MODEL_PATH + "RCNN\\Model.h5"
 PREDICTION_PATH = os.environ.get("PREDICTIONS_PATH")
-PREDICTIONS_PATH = r"../Data/Prediction/"
+PREDICTIONS_PATH = r"./Data/Prediction/"
 
 recommend_genre = {
     0: ["IWZ9Z096"],
@@ -392,7 +392,7 @@ def recommend(prediction_anchor, count, predictions_song, predictions_name, coun
 
 def runFlask():
     port = int(os.environ.get('PORT', 8089))
-    app.run(host='0.0.0.0', port=port,ssl_context=('cert.pem', 'key.pem') )
+    app.run(host='0.0.0.0', port=port,ssl_context=('src/cert.pem', 'src/key.pem') )
 
 
 
