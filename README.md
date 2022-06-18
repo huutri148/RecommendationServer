@@ -1,5 +1,7 @@
 ### Setup Guide
+- Navigate to app folder
+> cd app
 - Install Library 
 > pip install -r requirements.txt
 - Run server
-> python src/api.py
+> python api.py

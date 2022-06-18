@@ -1,19 +1,17 @@
 import os
 from flask import Flask, request,jsonify
 from flask_cors import CORS
-import numpy as np
-import requests
 import json
+import numpy as np
 import pyodbc
+import requests
 
 from dotenv import load_dotenv
 load_dotenv()
 
 
-
-
-PREDICTION_PATH = os.environ.get("PREDICTIONS_PATH")
-PREDICTIONS_PATH = r"./Data/Prediction/"
+cursor = {}
+cursor2 = {}
 
 recommend_genre = {
     0: ["IWZ9Z096"],
@@ -35,7 +33,8 @@ recommend_genre = {
     16: ["IWZ9Z0C7"],
     17: ["IWZ97FCD"],
 }
-
+PREDICTION_PATH = os.environ.get("PREDICTIONS_PATH")
+PREDICTIONS_PATH = r"Data/Prediction/"
 
 def load_predictions():
     data = {
@@ -44,7 +43,7 @@ def load_predictions():
         "counts":[]
     }
 
-    fileName = PREDICTIONS_PATH + "\\prediction.json"
+    fileName =  PREDICTIONS_PATH + "prediction.json"
 
     with open(fileName, "r") as fp:
         mfcc_json = json.load(fp)
@@ -60,76 +59,83 @@ def load_predictions():
 
     return predictions_song, data['predictions_name'],data['counts']
 
+def connectDB():
+    global cursor
+    global cursor2
 
-# Khởi tạo Flask Server Backend
-app = Flask(__name__)
-CORS(app)
-j
-cursor = {}
-cursor2 = {}
+    server = os.environ.get('MUSICPLAYER_AZURE_SERVER')
+    database = os.environ.get('MUSICPLAYER_DB')
+    username = os.environ.get('AZURE_USERNAME')
+    password = os.environ.get('AZURE_PASSWORD')
+    driver = '{ODBC Driver 17 for SQL Server}'
 
-predictions_song, predictions_name, counts = load_predictions()
+    conn = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
+    conn2 = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1434;DATABASE='+database+';UID='+username+';PWD='+ password)
 
+    conn.setencoding(encoding='utf8')
+    conn2.setencoding(encoding='utf8')
 
-@app.route('/ping', methods=['GET'])
-def testAPI():
-    return {'msg':'pong'}
+    cursor = conn.cursor()
+    cursor2 = conn2.cursor()
 
+    print("Connect to DB Succesfully!!!")
 
+def runFlask():
+    port = int(os.environ.get('PORT', 5000))
+    # app.run(host='0.0.0.0', port=port,ssl_context=('src/cert.pem', 'src/key.pem') )
+    app.run(host='0.0.0.0', port=port )
 
+def getRecommendedSong(fileName):
+    if fileName in predictions_name:
+        predict_anchor, count = getPredictAnchor(fileName)
+        songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
+        songInfos = []
+        for song in songs:
+            songInfos.append(getSong(song))
+        return songInfos
+    else:
+        file_path = PREDICTION_PATH  + fileName + ".json"
+        predict_anchor = np.full([10,18], 0)
+        count = 1
 
-@app.route('/recommend/', methods=['GET'])
-def getRecommend():
-    name_file = request.args.get('name_file')
-    songs = getRecommendedSong(name_file)
-    return jsonify(songs)
+        res = requests.get(file_path)
+        prediction = json.loads(res.text)
 
-@app.route('/userRecommend', methods=['GET'])
-def getUserRecommend():
-    userId = request.args.get('userId')
-    songIDs = getTopUserSong(userId, cursor)
-    songs = []
-    for songID in songIDs:
-        recommendSongs = getFilterRecommendedSong(songID,songs)
-        songs = songs + recommendSongs
-    return jsonify(songs)
+        predict_anchor = predict_anchor + np.array(prediction)
+        songInfos = []
 
+        songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
+        for song in songs:
+            songInfos.append(getSong(song))
+        return songInfos
 
-@app.route('/genreRecommend', methods=['GET'])
-def getGenreRecommend():
-    userId = request.args.get('userId')
-    songIDs = getTopUserSong(userId, cursor2)
-    genres = []
-    recommendGenre= []
-    result = []
-    for song in songIDs:
-        gen = getFirstPrediction(song)
-        if len(gen) != 0:
-            genIndex = np.argmax(gen)
-            if genIndex not in genres:
-                genres.append(genIndex)
-    for genre in genres:
-        recommendGenre += recommend_genre[genre]
+def recommend(prediction_anchor, count, predictions_song, predictions_name, counts, fileName):
+    distance_array = []
+    # Count is used for averaging the latent feature vectors.
+    prediction_anchor = prediction_anchor / count
+    for i in range(len(predictions_song)):
+        predictions_song[i] = predictions_song[i] / counts[i]
+        # Cosine Similarity - Computes a similarity score of all songs with respect
+        # to the anchor song.
+        distance_array.append(np.sum(prediction_anchor * predictions_song[i]) / (
+                np.sqrt(np.sum(prediction_anchor ** 2)) * np.sqrt(np.sum(predictions_song[i] ** 2))))
 
-    for gen in recommendGenre:
-        data = getGenreSong(gen)
-        if data:
-            result.append(data)
-
-    return  jsonify(result)
-
-
-
-@app.route("/models", methods = ['GET'])
-def getListModel():
-    models = []
-    for dir in os.listdir(MODEL_PATH):
-        models.append(dir)
-    return {'models':models}
+    distance_array = np.array(distance_array)
+    recommendations = 0
 
 
+    recommend_songs = []
+    # Number of Recommendations is set to 2.
+    while recommendations < 5:
+        index = np.argmax(distance_array)
+        value = distance_array[index]
+        distance_array[index] = - np.inf
+        if predictions_name[index] != fileName:
+            recommend_songs.append(predictions_name[index])
+            recommendations = recommendations + 1
 
 
+    return recommend_songs
 
 def getSong(songID):
     result = cursor.execute("""
@@ -177,40 +183,6 @@ def getSong(songID):
     }
     return data
 
-def connectDB():
-    global cursor
-    global cursor2
-
-    server = os.environ.get('MUSICPLAYER_AZURE_SERVER')
-    database = os.environ.get('MUSICPLAYER_DB')
-    username = os.environ.get('AZURE_USERNAME')
-    password = os.environ.get('AZURE_PASSWORD')
-    driver = '{ODBC Driver 17 for SQL Server}'
-
-    conn = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
-    conn2 = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1434;DATABASE='+database+';UID='+username+';PWD='+ password)
-
-    conn.setencoding(encoding='utf8')
-    conn2.setencoding(encoding='utf8')
-
-    cursor = conn.cursor()
-    cursor2 = conn2.cursor()
-
-    print("Connect to DB Succesfully!!!")
-
-def getTopUserSong(userId, cursor):
-    result = cursor.execute("""
-                              select Top 3 *
-                                from History
-                               where UserID = ? and Count >= 15
-                               Order by Count Desc;
-                              """, userId).fetchall()
-    songs = []
-    for row in result:
-        songs.append(row.SongID)
-
-    return songs
-
 def getPredictAnchor(fileName):
 
     prediction_anchor = np.full([10,18], 0)
@@ -226,30 +198,6 @@ def getPredictAnchor(fileName):
     prediction_anchor = prediction_anchor / count
 
     return prediction_anchor, count
-
-def getRecommendedSong(fileName):
-    if fileName in predictions_name:
-        predict_anchor, count = getPredictAnchor(fileName)
-        songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
-        songInfos = []
-        for song in songs:
-            songInfos.append(getSong(song))
-        return songInfos
-    else:
-        file_path = PREDICTION_PATH  + fileName + ".json"
-        predict_anchor = np.full([10,18], 0)
-        count = 1
-
-        res = requests.get(file_path)
-        prediction = json.loads(res.text)
-
-        predict_anchor = predict_anchor + np.array(prediction)
-        songInfos = []
-
-        songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
-        for song in songs:
-            songInfos.append(getSong(song))
-        return songInfos
 
 def getFilterRecommendedSong(fileName, songList):
     if fileName in predictions_name:
@@ -350,44 +298,90 @@ def getArtist(songId, cursor):
 
     return artistsName, artists
 
-def recommend(prediction_anchor, count, predictions_song, predictions_name, counts, fileName):
 
-    distance_array = []
-    # Count is used for averaging the latent feature vectors.
-    prediction_anchor = prediction_anchor / count
-    for i in range(len(predictions_song)):
-        predictions_song[i] = predictions_song[i] / counts[i]
-        # Cosine Similarity - Computes a similarity score of all songs with respect
-        # to the anchor song.
-        distance_array.append(np.sum(prediction_anchor * predictions_song[i]) / (
-                np.sqrt(np.sum(prediction_anchor ** 2)) * np.sqrt(np.sum(predictions_song[i] ** 2))))
+def getTopUserSong(userId, cursor):
+    result = cursor.execute("""
+                              select Top 3 *
+                                from History
+                               where UserID = ? and Count >= 15
+                               Order by Count Desc;
+                              """, userId).fetchall()
+    songs = []
+    for row in result:
+        songs.append(row.SongID)
 
-    distance_array = np.array(distance_array)
-    recommendations = 0
+    return songs
 
-
-    recommend_songs = []
-    # Number of Recommendations is set to 2.
-    while recommendations < 5:
-        index = np.argmax(distance_array)
-        value = distance_array[index]
-        distance_array[index] = - np.inf
-        if predictions_name[index] != fileName:
-            recommend_songs.append(predictions_name[index])
-            recommendations = recommendations + 1
-
-
-    return recommend_songs
-
-
-def runFlask():
-    port = int(os.environ.get('PORT', 8089))
-    app.run(host='0.0.0.0', port=port,ssl_context=('src/cert.pem', 'src/key.pem') )
+predictions_song, predictions_name, counts = load_predictions()
 
 
 
+# Khởi tạo Flask Server Backend
+app = Flask(__name__)
+CORS(app)
 
 
+
+@app.route('/', methods=['GET'])
+def ping():
+    return {'msg':'ping'}
+
+
+@app.route('/ping', methods=['GET'])
+def testAPI():
+    return {'msg':'pong'}
+
+
+
+@app.route('/recommend', methods=['GET'])
+def getRecommend():
+    name_file = request.args.get('name_file')
+    songs = getRecommendedSong(name_file)
+    return jsonify(songs)
+
+
+
+@app.route('/userRecommend', methods=['GET'])
+def getUserRecommend():
+    userId = request.args.get('userId')
+    songIDs = getTopUserSong(userId, cursor)
+    songs = []
+    for songID in songIDs:
+        recommendSongs = getFilterRecommendedSong(songID,songs)
+        songs = songs + recommendSongs
+    return jsonify(songs)
+
+
+
+@app.route('/genreRecommend', methods=['GET'])
+def getGenreRecommend():
+    userId = request.args.get('userId')
+    songIDs = getTopUserSong(userId, cursor2)
+    genres = []
+    recommendGenre= []
+    result = []
+    for song in songIDs:
+        gen = getFirstPrediction(song)
+        if len(gen) != 0:
+            genIndex = np.argmax(gen)
+            if genIndex not in genres:
+                genres.append(genIndex)
+    for genre in genres:
+        recommendGenre += recommend_genre[genre]
+
+    for gen in recommendGenre:
+        data = getGenreSong(gen)
+        if data:
+            result.append(data)
+
+    return  jsonify(result)
+
+
+
+    
+
+
+ 
 
 
 # Start Backend
