@@ -12,10 +12,6 @@ load_dotenv()
 
 
 
-MODEL_PATH = r"./Models/Model_MFCC/"
-RES50_PATH = MODEL_PATH + "Res50\\Model.h5"
-RES18_PATH = MODEL_PATH + "Res18\\Model.h5"
-RCNN_PATH = MODEL_PATH + "RCNN\\Model.h5"
 PREDICTION_PATH = os.environ.get("PREDICTIONS_PATH")
 PREDICTIONS_PATH = r"./Data/Prediction/"
 
@@ -68,12 +64,10 @@ def load_predictions():
 # Khởi tạo Flask Server Backend
 app = Flask(__name__)
 CORS(app)
-# print("Number of GPUs Available: {}".format(len(tf.config.list_physical_devices('GPU'))))
-
-# Load model và bộ recommended Song
+j
 cursor = {}
 cursor2 = {}
-#MODEL = load_model(RES50_PATH)
+
 predictions_song, predictions_name, counts = load_predictions()
 
 
@@ -134,10 +128,6 @@ def getListModel():
     return {'models':models}
 
 
-# @app.route("/currentModel", methods=['GET'])
-# def currentModel():
-#     if request.method == "GET":
-#         return {"summary": MODEL.summary()}
 
 
 
