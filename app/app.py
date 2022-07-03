@@ -63,14 +63,16 @@ def connectDB():
     global cursor
     global cursor2
 
-    server = os.environ.get('MUSICPLAYER_AZURE_SERVER')
+    server = os.environ.get('SQL_SERVER')
     database = os.environ.get('MUSICPLAYER_DB')
-    username = os.environ.get('AZURE_USERNAME')
-    password = os.environ.get('AZURE_PASSWORD')
+    username = os.environ.get('SQL_USERNAME')
+    password = os.environ.get('SQL_PASSWORD')
     driver = '{ODBC Driver 17 for SQL Server}'
 
     conn = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1433;DATABASE='+database+';UID='+username+';PWD='+ password)
     conn2 = pyodbc.connect('DRIVER='+driver+';SERVER=tcp:'+server+';PORT=1434;DATABASE='+database+';UID='+username+';PWD='+ password)
+
+
 
     conn.setencoding(encoding='utf8')
     conn2.setencoding(encoding='utf8')
@@ -199,16 +201,17 @@ def getPredictAnchor(fileName):
 
     return prediction_anchor, count
 
+
 def getFilterRecommendedSong(fileName, songList):
+    songInfos = []
     if fileName in predictions_name:
         predict_anchor, count = getPredictAnchor(fileName)
         songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
         songInfos = []
         for song in songs:
-            s = getSong(song)
-            if s not in songList:
+            if song not in songList:
+                s = getSong(song)
                 songInfos.append(s)
-        return songInfos
     else:
         file_path = PREDICTION_PATH  + fileName + ".json"
         predict_anchor = np.full([10,18], 0)
@@ -219,16 +222,13 @@ def getFilterRecommendedSong(fileName, songList):
         prediction = json.loads(res.text)
 
         predict_anchor = predict_anchor + np.array(prediction)
-        songInfos = []
 
         songs = recommend(predict_anchor, count, predictions_song, predictions_name, counts, fileName)
         for song in songs:
-            s = getSong(song)
-            if s not in songList:
+            if song not in songList:
+                s = getSong(song)
                 songInfos.append(s)
-
-        return songInfos
-    return []
+    return songInfos
 
 def getFirstPrediction(fileName):
     file_path = PREDICTION_PATH  + fileName + ".json"
@@ -312,6 +312,18 @@ def getTopUserSong(userId, cursor):
 
     return songs
 
+def getSongFromPlaylist(playlistId, cursor):
+    result = cursor.execute("""
+                          select *
+                          from PlaylistSong
+                          where PlaylistID = ? 
+                          """, playlistId).fetchall()
+    songs = []
+    for row in result:
+        songs.append(row.SongID)
+    
+    return songs
+
 predictions_song, predictions_name, counts = load_predictions()
 
 
@@ -375,6 +387,29 @@ def getGenreRecommend():
             result.append(data)
 
     return  jsonify(result)
+
+
+@app.route('/playlistRecommend', methods=['GET'])
+def getPlaylistSongRecommend():
+    playlistId = request.args.get('playlistId')
+    songIDs = getSongFromPlaylist(playlistId, cursor2)
+    songs = []
+
+    for songID in songIDs:
+        if len(songs) < 5:
+            recSongs = getFilterRecommendedSong(songID, songIDs)
+            for recSong in recSongs:
+                if recSong["songId"] not in songIDs:
+                    songs.append(recSong)
+                    break
+        else: 
+            break
+
+    return jsonify(songs)
+
+
+
+
 
 
 
