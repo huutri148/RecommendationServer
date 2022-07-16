@@ -35,6 +35,8 @@ recommend_genre = {
 }
 PREDICTION_PATH = os.environ.get("PREDICTIONS_PATH")
 PREDICTIONS_PATH = r"Data/Prediction/"
+TAGS_PATH = r"Data/tag.json"
+RESNET50_PATH = r"Data/resnet50.json"
 
 def load_predictions():
     data = {
@@ -406,6 +408,31 @@ def getPlaylistSongRecommend():
             break
 
     return jsonify(songs)
+
+
+@app.route('/tags', methods=['GET'])
+def getTags():
+    fileName = TAGS_PATH
+
+    with open(fileName, "r") as fp:
+        tag_json = json.load(fp)
+
+    return jsonify(tag_json["tags"])
+
+
+@app.route('/models', methods=['GET'])
+def getModel():
+    modelId = request.args.get('modelId')
+    if modelId == "1":
+
+        fileName = RESNET50_PATH
+
+        with open(fileName, "r") as fp:
+            model_json = json.load(fp)
+
+        return model_json
+    else:
+        return {"msg": "Not found"}
 
 
 

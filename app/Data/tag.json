@@ -1,0 +1,99 @@
+{
+  "tags": [
+    {
+      "id": 1,
+      "name": "country",
+      "numberOfFiles": 65
+    },
+    {
+      "id": 2,
+      "name": "dance-viet",
+      "numberOfFiles": 52
+    },
+    {
+      "id": 3,
+      "name": "edm-viet",
+      "numberOfFiles": 53
+    },
+    {
+      "id": 4,
+      "name": "electron-dance",
+      "numberOfFiles": 465
+    },
+    {
+      "id": 5,
+      "name": "k-pop",
+      "numberOfFiles": 142
+    },
+    {
+      "id": 6,
+      "name": "latin",
+      "numberOfFiles": 75
+    },
+    {
+      "id": 7,
+      "name": "nhac-dan-ca-que-huong",
+      "numberOfFiles": 50
+    },
+    {
+      "id": 8,
+      "name": "nhac-phim-us-uk",
+      "numberOfFiles": 501
+    },
+    {
+      "id": 9,
+      "name": "nhac-phim-viet",
+      "numberOfFiles": 501
+    },
+    {
+      "id": 10,
+      "name": "nhac-tru-tinh",
+      "numberOfFiles": 50
+    },
+    {
+      "id": 11,
+      "name": "pop",
+      "numberOfFiles": 501
+    },
+    {
+      "id": 12,
+      "name": "pop-ballad",
+      "numberOfFiles": 163
+    },
+    {
+      "id": 13,
+      "name": "R-B-soul",
+      "numberOfFiles": 53
+    },
+    {
+      "id": 14,
+      "name": "r-b-viet",
+      "numberOfFiles": 130
+    },
+    {
+      "id": 15,
+      "name": "rap-hiphop",
+      "numberOfFiles": 196
+    },
+    {
+      "id": 16,
+      "name": "rap-viet",
+      "numberOfFiles": 101
+    },
+    {
+      "id": 17,
+      "name": "rock",
+      "numberOfFiles": 43
+    },
+    {
+      "id": 18,
+      "name": "trance-house-techno",
+      "numberOfFiles": 138
+    },
+    {
+      "id": 19,
+      "name": "v-pop",
+      "numberOfFiles": 501
+    }
+  ]
+}
